@@ -7,44 +7,28 @@ import (
 	"math"
 	"time"
 
-	"github.com/ktsu2i/tenki/internal/forecast"
 	"github.com/ktsu2i/tenki/internal/geocode"
+	"github.com/ktsu2i/tenki/internal/weather"
 )
 
-type ViewMode string
-
-const (
-	ViewSummary ViewMode = "summary"
-	ViewDaily   ViewMode = "daily"
-	ViewHourly  ViewMode = "hourly"
-)
-
-type Report struct {
-	Location geocode.Location  `json:"location"`
-	Mode     ViewMode          `json:"mode"`
-	Current  forecast.Current  `json:"current"`
-	Daily    []forecast.Daily  `json:"daily"`
-	Hourly   []forecast.Hourly `json:"hourly"`
-}
-
-func WriteJSON(w io.Writer, report Report) error {
+func WriteJSON(w io.Writer, report weather.Report) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(report)
 }
 
-func WriteText(w io.Writer, report Report) error {
+func WriteText(w io.Writer, report weather.Report) error {
 	switch report.Mode {
-	case ViewDaily:
+	case weather.ViewDaily:
 		return writeDaily(w, report)
-	case ViewHourly:
+	case weather.ViewHourly:
 		return writeHourly(w, report)
 	default:
 		return writeSummary(w, report)
 	}
 }
 
-func writeSummary(w io.Writer, report Report) error {
+func writeSummary(w io.Writer, report weather.Report) error {
 	if _, err := fmt.Fprintln(w, formatLocation(report.Location)); err != nil {
 		return err
 	}
@@ -71,7 +55,7 @@ func writeSummary(w io.Writer, report Report) error {
 	return nil
 }
 
-func writeDaily(w io.Writer, report Report) error {
+func writeDaily(w io.Writer, report weather.Report) error {
 	if _, err := fmt.Fprintf(w, "%s\n\n", formatLocation(report.Location)); err != nil {
 		return err
 	}
@@ -83,7 +67,7 @@ func writeDaily(w io.Writer, report Report) error {
 	return nil
 }
 
-func writeHourly(w io.Writer, report Report) error {
+func writeHourly(w io.Writer, report weather.Report) error {
 	if _, err := fmt.Fprintf(w, "%s\n\n", formatLocation(report.Location)); err != nil {
 		return err
 	}

@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-
-	"github.com/ktsu2i/tenki/internal/geocode"
 )
 
 func TestGetRequestsForecastAndNormalizesResponse(t *testing.T) {
@@ -35,9 +33,10 @@ func TestGetRequestsForecastAndNormalizesResponse(t *testing.T) {
 	client.Endpoint = "https://example.test/forecast"
 
 	result, err := client.Get(context.Background(), Request{
-		Location: geocode.Location{Latitude: 35.6895, Longitude: 139.6917},
-		Days:     2,
-		Hours:    2,
+		Latitude:  35.6895,
+		Longitude: 139.6917,
+		Days:      2,
+		Hours:     2,
 	})
 	if err != nil {
 		t.Fatalf("Get returned error: %v", err)

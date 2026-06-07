@@ -11,12 +11,13 @@ import (
 
 	"github.com/ktsu2i/tenki/internal/forecast"
 	"github.com/ktsu2i/tenki/internal/geocode"
+	"github.com/ktsu2i/tenki/internal/weather"
 )
 
 func TestRunPrintsSummary(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
-	err := runWithClients([]string{"tokyo"}, &stdout, &stderr, "test", context.Background(), fakeGeocoder{}, fakeForecaster{})
+	err := runWithService([]string{"tokyo"}, &stdout, &stderr, "test", context.Background(), fakeReporter{})
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
@@ -35,7 +36,7 @@ func TestRunPrintsSummary(t *testing.T) {
 func TestRunJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
-	err := runWithClients([]string{"tokyo", "--hourly", "--hours", "24", "--json"}, &stdout, &stderr, "test", context.Background(), fakeGeocoder{}, fakeForecaster{})
+	err := runWithService([]string{"tokyo", "--hourly", "--hours", "24", "--json"}, &stdout, &stderr, "test", context.Background(), fakeReporter{})
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
@@ -109,22 +110,18 @@ func TestRunRequiresLocation(t *testing.T) {
 	}
 }
 
-type fakeGeocoder struct{}
+type fakeReporter struct{}
 
-func (fakeGeocoder) Search(ctx context.Context, name string) (geocode.Location, error) {
-	return geocode.Location{
-		Name:      "Tokyo",
-		Country:   "Japan",
-		Latitude:  35.6895,
-		Longitude: 139.6917,
-		Timezone:  "Asia/Tokyo",
-	}, nil
-}
-
-type fakeForecaster struct{}
-
-func (fakeForecaster) Get(ctx context.Context, request forecast.Request) (forecast.Forecast, error) {
-	return forecast.Forecast{
+func (fakeReporter) Report(ctx context.Context, request weather.Request) (weather.Report, error) {
+	return weather.Report{
+		Location: geocode.Location{
+			Name:      "Tokyo",
+			Country:   "Japan",
+			Latitude:  35.6895,
+			Longitude: 139.6917,
+			Timezone:  "Asia/Tokyo",
+		},
+		Mode: request.Mode,
 		Current: forecast.Current{
 			Time:        "2026-06-05T12:00",
 			Temperature: 22,

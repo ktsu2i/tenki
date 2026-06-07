@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-
-	"github.com/ktsu2i/tenki/internal/geocode"
 )
 
 const defaultEndpoint = "https://api.open-meteo.com/v1/forecast"
@@ -24,9 +22,10 @@ type Client struct {
 }
 
 type Request struct {
-	Location geocode.Location
-	Days     int
-	Hours    int
+	Latitude  float64
+	Longitude float64
+	Days      int
+	Hours     int
 }
 
 type Forecast struct {
@@ -73,8 +72,8 @@ func (c *Client) Get(ctx context.Context, request Request) (Forecast, error) {
 	}
 
 	values := url.Values{}
-	values.Set("latitude", strconv.FormatFloat(request.Location.Latitude, 'f', -1, 64))
-	values.Set("longitude", strconv.FormatFloat(request.Location.Longitude, 'f', -1, 64))
+	values.Set("latitude", strconv.FormatFloat(request.Latitude, 'f', -1, 64))
+	values.Set("longitude", strconv.FormatFloat(request.Longitude, 'f', -1, 64))
 	values.Set("current", "temperature_2m,weather_code")
 	values.Set("daily", "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max")
 	values.Set("hourly", "temperature_2m,weather_code,precipitation_probability")
