@@ -3,6 +3,7 @@
 Open-Meteo を使って天気を表示する Go 製 CLI です。
 
 場所名を Open-Meteo Geocoding API で解決し、Forecast API から現在天気・日別予報・時間別予報を取得します。
+API key は不要です。
 
 ## Install
 
@@ -22,39 +23,75 @@ go install github.com/ktsu2i/tenki/cmd/tenki@v0.1.0
 
 ## Usage
 
-```bash
-go run ./cmd/tenki tokyo
-go run ./cmd/tenki tokyo --daily --days 3
-go run ./cmd/tenki tokyo --hourly --hours 24
-go run ./cmd/tenki tokyo --json
-go run ./cmd/tenki --version
-```
-
-## Development
+基本形は、天気を見たい場所名を 1 つ渡します。
 
 ```bash
-go test ./...
+tenki <location>
 ```
 
-## Release
-
-`go install` 配布に GitHub Actions は必須ではありません。GitHub に push して SemVer tag を作れば、利用者はその tag を指定してインストールできます。
-
-`gh release create` を使うと、remote に tag がない場合は GitHub 側で tag も作成されます。
+例:
 
 ```bash
-gh release create v0.1.0 --generate-notes
+tenki tokyo
+tenki osaka
+tenki kyoto
 ```
 
-tag の作成元 branch や commit を明示する場合:
+デフォルトでは、解決された場所名、現在天気、今日の最高/最低気温、今日の降水確率、明日以降のざっくり予報を表示します。
+
+```text
+Tokyo, Japan
+Now: 22C, Partly cloudy
+Today: 17C / 24C, rain 20%
+
+Fri  Sunny         25C / 16C
+Sat  Cloudy        23C / 18C
+Sun  Light rain    21C / 17C
+```
+
+## Options
+
+### Daily forecast
+
+日別予報だけを表示します。
 
 ```bash
-gh release create v0.1.0 --target main --generate-notes
+tenki tokyo --daily
+tenki tokyo --days 3
 ```
 
-tag を作る前に確認すること:
+`--days N` は `1` から `7` まで指定できます。`--days` を指定した場合は、自動的に daily 表示になります。
+
+### Hourly forecast
+
+時間別予報だけを表示します。
 
 ```bash
-go test ./...
-go run ./cmd/tenki --version
+tenki tokyo --hourly
+tenki tokyo --hours 24
 ```
+
+`--hours N` は `1` から `24` まで指定できます。`--hours` を指定した場合は、自動的に hourly 表示になります。
+
+### JSON output
+
+```bash
+tenki tokyo --json
+tenki tokyo --daily --json
+tenki tokyo --hourly --hours 24 --json
+```
+
+`--json` を付けると、整形済みの JSON だけを標準出力に出します。
+
+### Version
+
+```bash
+tenki --version
+```
+
+## Flag rules
+
+- `--daily` と `--hourly` は同時に指定できません。
+- `--days` と `--hours` は同時に指定できません。
+- `--daily` と `--hours`、`--hourly` と `--days` も同時に指定できません。
+- `--days` は `1..7`、`--hours` は `1..24` を指定できます。
