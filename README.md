@@ -87,6 +87,7 @@ tenki tokyo --hourly --hours 24 --json
 
 ```bash
 tenki --version
+tenki -v
 ```
 
 ## Flag rules

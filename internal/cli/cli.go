@@ -23,7 +23,7 @@ const (
 )
 
 type CLI struct {
-	Version kong.VersionFlag `name:"version" help:"Show version and exit."`
+	Version kong.VersionFlag `name:"version" short:"v" help:"Show version and exit."`
 
 	Daily  bool `help:"Show daily forecast."`
 	Hourly bool `help:"Show hourly forecast."`
