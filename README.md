@@ -2,7 +2,7 @@
 
 Open-Meteo を使って天気を表示する Go 製 CLI です。
 
-現時点では CLI の雛形だけを実装しています。天気取得処理はまだ未実装です。
+場所名を Open-Meteo Geocoding API で解決し、Forecast API から現在天気・日別予報・時間別予報を取得します。
 
 ## Usage
 

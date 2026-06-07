@@ -1,11 +1,17 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/ktsu2i/tenki/internal/forecast"
+	"github.com/ktsu2i/tenki/internal/geocode"
+	"github.com/ktsu2i/tenki/internal/output"
 )
 
 const (
@@ -29,16 +35,19 @@ type CLI struct {
 }
 
 type runContext struct {
-	stdout io.Writer
+	ctx        context.Context
+	stdout     io.Writer
+	geocoder   geocoder
+	forecaster forecaster
 }
 
-type viewMode string
+type geocoder interface {
+	Search(context.Context, string) (geocode.Location, error)
+}
 
-const (
-	viewSummary viewMode = "summary"
-	viewDaily   viewMode = "daily"
-	viewHourly  viewMode = "hourly"
-)
+type forecaster interface {
+	Get(context.Context, forecast.Request) (forecast.Forecast, error)
+}
 
 // Main is the process-oriented entry point used by cmd/tenki.
 func Main(args []string, stdout, stderr io.Writer, version string) int {
@@ -51,6 +60,11 @@ func Main(args []string, stdout, stderr io.Writer, version string) int {
 
 // Run parses CLI arguments and executes the selected command behavior.
 func Run(args []string, stdout, stderr io.Writer, version string) error {
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	return runWithClients(args, stdout, stderr, version, context.Background(), geocode.NewClient(httpClient), forecast.NewClient(httpClient))
+}
+
+func runWithClients(args []string, stdout, stderr io.Writer, version string, baseContext context.Context, geocoder geocoder, forecaster forecaster) error {
 	var cli CLI
 
 	parser, err := kong.New(
@@ -70,7 +84,12 @@ func Run(args []string, stdout, stderr io.Writer, version string) error {
 		return err
 	}
 
-	return ctx.Run(&runContext{stdout: stdout})
+	return ctx.Run(&runContext{
+		ctx:        baseContext,
+		stdout:     stdout,
+		geocoder:   geocoder,
+		forecaster: forecaster,
+	})
 }
 
 func (c *CLI) Run(ctx *runContext) error {
@@ -84,28 +103,36 @@ func (c *CLI) Run(ctx *runContext) error {
 		return err
 	}
 
+	resolved, err := ctx.geocoder.Search(ctx.ctx, location)
+	if err != nil {
+		return err
+	}
+
+	forecastResult, err := ctx.forecaster.Get(ctx.ctx, forecast.Request{
+		Location: resolved,
+		Days:     days,
+		Hours:    hours,
+	})
+	if err != nil {
+		return err
+	}
+
+	report := output.Report{
+		Location: resolved,
+		Mode:     mode,
+		Current:  forecastResult.Current,
+		Daily:    forecastResult.Daily,
+		Hourly:   forecastResult.Hourly,
+	}
+
 	if c.JSON {
-		fmt.Fprintf(ctx.stdout, "{\"location\":%q,\"mode\":%q,\"days\":%d,\"hours\":%d,\"status\":\"stub\"}\n", location, mode, days, hours)
-		return nil
+		return output.WriteJSON(ctx.stdout, report)
 	}
 
-	fmt.Fprintf(ctx.stdout, "tenki: %s\n", location)
-	fmt.Fprintf(ctx.stdout, "mode: %s\n", mode)
-
-	switch mode {
-	case viewDaily:
-		fmt.Fprintf(ctx.stdout, "days: %d\n", days)
-	case viewHourly:
-		fmt.Fprintf(ctx.stdout, "hours: %d\n", hours)
-	default:
-		fmt.Fprintf(ctx.stdout, "days: %d\n", days)
-	}
-
-	fmt.Fprintln(ctx.stdout, "weather fetching is not implemented yet")
-	return nil
+	return output.WriteText(ctx.stdout, report)
 }
 
-func (c *CLI) resolveView() (viewMode, int, int, error) {
+func (c *CLI) resolveView() (output.ViewMode, int, int, error) {
 	if c.Daily && c.Hourly {
 		return "", 0, 0, fmt.Errorf("--daily and --hourly cannot be used together")
 	}
@@ -137,10 +164,10 @@ func (c *CLI) resolveView() (viewMode, int, int, error) {
 
 	switch {
 	case c.Hourly || c.Hours != nil:
-		return viewHourly, days, hours, nil
+		return output.ViewHourly, days, hours, nil
 	case c.Daily || c.Days != nil:
-		return viewDaily, days, hours, nil
+		return output.ViewDaily, days, hours, nil
 	default:
-		return viewSummary, days, hours, nil
+		return output.ViewSummary, days, hours, nil
 	}
 }
