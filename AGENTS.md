@@ -8,6 +8,9 @@
 .
 ├── cmd/tenki/          # CLI バイナリの entrypoint
 ├── internal/cli/       # Kong による引数・フラグ定義と実行入口
+├── internal/geocode/   # Open-Meteo Geocoding API による場所解決
+├── internal/forecast/  # Open-Meteo Forecast API による天気取得
+├── internal/output/    # プレーンテキスト / JSON 出力整形
 ├── docs/spec.md        # v1 の最小仕様
 ├── go.mod
 ├── go.sum
@@ -24,11 +27,12 @@
 - ユーザー向けエラーは `stderr` に出し、非 0 で終了する。
 - 標準出力には通常出力または JSON だけを出す。`--json` 時は余計な文言を混ぜない。
 
-## 予定しているパッケージ分割
+## パッケージ分割
 
 仕様書の v1 実装では、次の分割を基本にする。
 
 ```text
+internal/cli/       # フラグ解釈と上位の orchestration
 internal/geocode/   # Open-Meteo Geocoding API による場所解決
 internal/forecast/  # Open-Meteo Forecast API による天気取得
 internal/output/    # プレーンテキスト / JSON 出力整形
@@ -38,7 +42,7 @@ internal/output/    # プレーンテキスト / JSON 出力整形
 
 ## 現在の CLI
 
-現在は雛形実装で、天気取得は未実装の stub 出力になっている。
+Open-Meteo の Geocoding API と Forecast API を呼び、解決された場所名、現在天気、日別予報、時間別予報を表示する。
 
 対応済みの入力:
 
@@ -49,6 +53,13 @@ go run ./cmd/tenki tokyo --hourly --hours 24
 go run ./cmd/tenki tokyo --json
 go run ./cmd/tenki --version
 ```
+
+出力:
+
+- デフォルト表示では、解決された場所名、現在天気、今日の最高/最低気温、今日の降水確率、明日以降のざっくり予報を表示する。
+- `--daily` / `--days` では日別予報を表示する。
+- `--hourly` / `--hours` では時間別予報を表示する。
+- `--json` では CLI 側で整えた JSON だけを stdout に出す。
 
 フラグの基本ルール:
 
@@ -71,6 +82,8 @@ go run ./cmd/tenki tokyo
 GOCACHE=/private/tmp/tenki-gocache go test ./...
 GOCACHE=/private/tmp/tenki-gocache go run ./cmd/tenki tokyo
 ```
+
+サンドボックス環境では外部ネットワークへの DNS 解決が失敗することがある。その場合でも unit test は HTTP client fake で検証し、実 API の疎通確認だけ承認付きで実行する。
 
 ## コーディング規約
 

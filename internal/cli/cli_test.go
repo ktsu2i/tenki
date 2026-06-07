@@ -2,14 +2,19 @@ package cli
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/ktsu2i/tenki/internal/forecast"
+	"github.com/ktsu2i/tenki/internal/geocode"
 )
 
-func TestRunPrintsStubSummary(t *testing.T) {
+func TestRunPrintsSummary(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
-	err := Run([]string{"tokyo"}, &stdout, &stderr, "test")
+	err := runWithClients([]string{"tokyo"}, &stdout, &stderr, "test", context.Background(), fakeGeocoder{}, fakeForecaster{})
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
@@ -18,7 +23,7 @@ func TestRunPrintsStubSummary(t *testing.T) {
 	}
 
 	out := stdout.String()
-	for _, want := range []string{"tenki: tokyo", "mode: summary", "weather fetching is not implemented yet"} {
+	for _, want := range []string{"Tokyo, Japan", "Now: 22C, Partly cloudy", "Today: 17C / 24C, rain 20%", "Sat  Cloudy"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("stdout = %q, want it to contain %q", out, want)
 		}
@@ -28,7 +33,7 @@ func TestRunPrintsStubSummary(t *testing.T) {
 func TestRunJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
-	err := Run([]string{"tokyo", "--hourly", "--hours", "24", "--json"}, &stdout, &stderr, "test")
+	err := runWithClients([]string{"tokyo", "--hourly", "--hours", "24", "--json"}, &stdout, &stderr, "test", context.Background(), fakeGeocoder{}, fakeForecaster{})
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
@@ -36,9 +41,17 @@ func TestRunJSON(t *testing.T) {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 
-	want := "{\"location\":\"tokyo\",\"mode\":\"hourly\",\"days\":3,\"hours\":24,\"status\":\"stub\"}\n"
-	if stdout.String() != want {
-		t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+	var got struct {
+		Location geocode.Location  `json:"location"`
+		Mode     string            `json:"mode"`
+		Current  forecast.Current  `json:"current"`
+		Hourly   []forecast.Hourly `json:"hourly"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout.String())
+	}
+	if got.Location.Name != "Tokyo" || got.Mode != "hourly" || got.Current.Weather != "Partly cloudy" || len(got.Hourly) != 2 {
+		t.Fatalf("decoded JSON = %+v, want hourly report", got)
 	}
 }
 
@@ -76,4 +89,63 @@ func TestRunRequiresLocation(t *testing.T) {
 	if !strings.Contains(err.Error(), "<location>") {
 		t.Fatalf("error = %q, want location error", err.Error())
 	}
+}
+
+type fakeGeocoder struct{}
+
+func (fakeGeocoder) Search(ctx context.Context, name string) (geocode.Location, error) {
+	return geocode.Location{
+		Name:      "Tokyo",
+		Country:   "Japan",
+		Latitude:  35.6895,
+		Longitude: 139.6917,
+		Timezone:  "Asia/Tokyo",
+	}, nil
+}
+
+type fakeForecaster struct{}
+
+func (fakeForecaster) Get(ctx context.Context, request forecast.Request) (forecast.Forecast, error) {
+	return forecast.Forecast{
+		Current: forecast.Current{
+			Time:        "2026-06-05T12:00",
+			Temperature: 22,
+			WeatherCode: 2,
+			Weather:     "Partly cloudy",
+		},
+		Daily: []forecast.Daily{
+			{
+				Date:             "2026-06-05",
+				TemperatureMax:   24,
+				TemperatureMin:   17,
+				WeatherCode:      0,
+				Weather:          "Clear",
+				PrecipitationMax: 20,
+			},
+			{
+				Date:             "2026-06-06",
+				TemperatureMax:   23,
+				TemperatureMin:   18,
+				WeatherCode:      3,
+				Weather:          "Cloudy",
+				PrecipitationMax: 40,
+			},
+		},
+		Hourly: []forecast.Hourly{
+			{
+				Time:          "2026-06-05T12:00",
+				Temperature:   22,
+				WeatherCode:   2,
+				Weather:       "Partly cloudy",
+				Precipitation: 10,
+			},
+			{
+				Time:          "2026-06-05T13:00",
+				Temperature:   23,
+				WeatherCode:   0,
+				Weather:       "Clear",
+				Precipitation: 0,
+			},
+		},
+	}, nil
 }
