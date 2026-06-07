@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -52,6 +54,22 @@ func TestRunJSON(t *testing.T) {
 	}
 	if got.Location.Name != "Tokyo" || got.Mode != "hourly" || got.Current.Weather != "Partly cloudy" || len(got.Hourly) != 2 {
 		t.Fatalf("decoded JSON = %+v, want hourly report", got)
+	}
+}
+
+func TestRunPrintsVersionWithShortFlag(t *testing.T) {
+	if os.Getenv("TENKI_TEST_SHORT_VERSION") == "1" {
+		os.Exit(Main([]string{"-v"}, os.Stdout, os.Stderr, "test-version"))
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestRunPrintsVersionWithShortFlag")
+	cmd.Env = append(os.Environ(), "TENKI_TEST_SHORT_VERSION=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("command failed: %v\n%s", err, string(out))
+	}
+	if got, want := strings.TrimSpace(string(out)), "test-version"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
 	}
 }
 
